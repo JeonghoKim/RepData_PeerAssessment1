@@ -83,6 +83,37 @@ Show any code that is needed to
 2. Process/transform the data (if necessary) into a format suitable for your analysis
 
 
+```{r echo = TRUE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(plyr)
+activity <- read.csv("activity.csv")
+activity$day <- weekdays(as.Date(activity$date))
+activity$DateTime <- as.POSIXct(activity$date, format="%Y-%m-%d")
+```
+
+pulling data without nas
+
+```{r echo = TRUE}
+clean <- activity[!is.na(activity$steps),]
+```
+
+## What is mean total number of steps taken per day?
+
+summarizing total steps per date
+
+```{r echo = TRUE}
+sumTable <- aggregate(activity$steps ~ activity$date, FUN=sum, )
+colnames(sumTable)<- c("Date", "Steps")
+```
+
+Creating the historgram of total steps per day
+
+```{r histogram1, echo=TRUE, fig.width=10, warning=FALSE}
+hist(sumTable$Steps, breaks=5, xlab="Steps", main = "Total Steps per Day")
+as.integer(mean(sumTable$Steps))
+as.integer(median(sumTable$Steps))
+```
+
 ### What is mean total number of steps taken per day?
 
 For this part of the assignment, you can ignore the missing values in
@@ -92,6 +123,20 @@ the dataset.
 
 2. Calculate and report the **mean** and **median** total number of steps taken per day
 
+summarizing total steps per date
+
+```{r echo = TRUE}
+sumTable <- aggregate(activity$steps ~ activity$date, FUN=sum, )
+colnames(sumTable)<- c("Date", "Steps")
+```
+
+Creating the historgram of total steps per day
+
+```{r histogram1, echo=TRUE, fig.width=10, warning=FALSE}
+hist(sumTable$Steps, breaks=5, xlab="Steps", main = "Total Steps per Day")
+as.integer(mean(sumTable$Steps))
+as.integer(median(sumTable$Steps))
+```
 
 ### What is the average daily activity pattern?
 
@@ -99,6 +144,31 @@ the dataset.
 
 2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
 
+pulling data without nas
+
+``{r echo = TRUE)
+clean <- activity[!is.na(activity$steps),]
+```
+create average number of steps per interval
+
+```{r echo = TRUE}
+intervalTable <- ddply(clean, .(interval), summarize, Avg = mean(steps))
+```
+
+Create line plot of average number of steps per interval
+
+```{r timeplot1, echo=TRUE, fig.width=10, warning=FALSE}
+p <- ggplot(intervalTable, aes(x=interval, y=Avg), xlab = "Interval", 
+            ylab="Average Number of Steps")
+p + geom_line()+xlab("Interval")+ylab("Average Number of Steps")+
+        ggtitle("Average Number of Steps per Interval")
+```
+
+Mean and median of total number of steps taken per day
+
+```{r echo = TRUE}
+maxSteps <- max(intervalTable$Avg)
+intervalTable[intervalTable$Avg==maxSteps,1]
 
 ### Imputing missing values
 
@@ -114,6 +184,59 @@ bias into some calculations or summaries of the data.
 
 4. Make a histogram of the total number of steps taken each day and Calculate and report the **mean** and **median** total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
 
+Number of NAs in original data set
+
+```{r echo = TRUE}
+nrow(activity[is.na(activity$steps),])
+```
+
+Create the average number of steps per weekday and interval
+
+```{r echo = TRUE}
+avgTable <- ddply(clean, .(interval, day), summarize, Avg = mean(steps))
+nadata<- activity[is.na(activity$steps),]
+```
+
+Merge NA data with average weekday interval for substitution
+
+```{r echo = TRUE}
+newdata<-merge(nadata, avgTable, by=c("interval", "day"))
+```
+
+Reorder the new substituded data in the same format as clean data set
+
+```{r echo = TRUE}
+newdata2<- newdata[,c(6,4,1,2,5)]
+colnames(newdata2)<- c("steps", "date", "interval", "day", "DateTime")
+```
+
+Merge the NA averages and non NA data together
+
+```{r echo = TRUE}
+mergeData <- rbind(clean, newdata2)
+```
+
+Create sum of steps per date to compare with step 1
+
+```{r echo = TRUE}
+sumTable2 <- aggregate(mergeData$steps ~ mergeData$date, FUN=sum, )
+colnames(sumTable2)<- c("Date", "Steps")
+```
+
+Mean and Median of Steps with NA data taken care of
+
+```{r echo = TRUE}
+as.integer(mean(sumTable2$Steps))
+as.integer(median(sumTable2$Steps))
+```
+
+Creating the histogram of total steps per day, categorized by data set to show impact
+
+```{r histogram2, echo=TRUE, fig.width=10, warning=FALSE}
+hist(sumTable2$Steps, breaks=5, xlab="Steps", main = "Total Steps per Day with NAs Fixed", 
+     col="Black")
+hist(sumTable$Steps, breaks=5, xlab="Steps", main = "Total Steps per Day with NAs Fixed", col="Grey", add=T)
+legend("topright", c("Imputed Data", "Non-NA Data"), fill=c("black", "grey") )
 
 ### Are there differences in activity patterns between weekdays and weekends?
 
@@ -126,11 +249,25 @@ the dataset with the filled-in missing values for this part.
 
 ![Sample panel plot](instructions_fig/sample_panelplot.png) 
 
+Create new category based on the days of the week
 
-**Your plot will look different from the one above** because you will
-be using the activity monitor data. Note that the above plot was made
-using the lattice system but you can make the same version of the plot
-using any plotting system you choose.
+```{r echo = TRUE}
+mergeData$DayCategory <- ifelse(mergeData$day %in% c("Saturday", "Sunday"), "Weekend", "Weekday")
+library(lattice) 
+```
+
+Summarize data by interval and type of day
+
+```{r echo = TRUE}
+intervalTable2 <- ddply(mergeData, .(interval, DayCategory), summarize, Avg = mean(steps))
+```
+
+Plot data in a panel plot
+
+```{r timeplot2, echo=TRUE, fig.width=10, warning=FALSE}
+xyplot(Avg~interval|DayCategory, data=intervalTable2, type="l",  layout = c(1,2),
+       main="Average Steps per Interval Based on Type of Day", 
+       ylab="Average Number of Steps", xlab="Interval"
 
 
 ## Submitting the Assignment
